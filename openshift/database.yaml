@@ -1,0 +1,183 @@
+# ConfigMap - Database initialization script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: care-db-init
+  labels:
+    app: care-service
+data:
+  init.sql: |
+    -- Babies table
+    CREATE TABLE IF NOT EXISTS babies (
+        id UUID PRIMARY KEY,
+        last_name TEXT NOT NULL,
+        room_number TEXT NOT NULL,
+        parent_user_id UUID NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Measurements table
+    CREATE TABLE IF NOT EXISTS measurements (
+        id UUID PRIMARY KEY,
+        parent_id UUID NOT NULL,
+        baby_id UUID NOT NULL REFERENCES babies(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        value NUMERIC NOT NULL,
+        safety_status TEXT NOT NULL DEFAULT 'green',
+        note TEXT,
+        timestamp TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        -- Feeding-specific fields
+        feeding_type TEXT,
+        volume_ml INTEGER,
+        position TEXT,
+        side TEXT,
+        left_duration INTEGER,
+        right_duration INTEGER,
+        duration INTEGER,
+        -- Temperature-specific fields
+        value_celsius NUMERIC,
+        -- Diaper-specific fields
+        diaper_status TEXT,
+        -- CHECK constraints for data integrity
+        CONSTRAINT chk_feeding_fields CHECK (
+            (type != 'feeding' AND volume_ml IS NULL AND feeding_type IS NULL) OR
+            (type = 'feeding' AND feeding_type IS NOT NULL)
+        ),
+        CONSTRAINT chk_temperature_fields CHECK (
+            (type = 'temperature' AND value_celsius IS NOT NULL) OR
+            (type != 'temperature' AND value_celsius IS NULL)
+        ),
+        CONSTRAINT chk_diaper_fields CHECK (
+            (type = 'diaper' AND diaper_status IS NOT NULL) OR
+            (type != 'diaper' AND diaper_status IS NULL)
+        ),
+        CONSTRAINT chk_breastfeeding_durations CHECK (
+            (side != 'both') OR
+            (side = 'both' AND left_duration IS NOT NULL AND right_duration IS NOT NULL)
+        )
+    );
+
+    -- Indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_babies_parent_user_id ON babies(parent_user_id);
+    CREATE INDEX IF NOT EXISTS idx_measurements_baby_id ON measurements(baby_id);
+    CREATE INDEX IF NOT EXISTS idx_measurements_parent_id ON measurements(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_measurements_created_at ON measurements(created_at);
+    CREATE INDEX IF NOT EXISTS idx_measurements_timestamp ON measurements(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_measurements_safety_status ON measurements(safety_status);
+    CREATE INDEX IF NOT EXISTS idx_measurements_type ON measurements(type);
+---
+# PersistentVolumeClaim - Storage for database
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: care-db-pvc
+  labels:
+    app: care-service
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Secret for PostgreSQL connection
+# Note: In okd, create this secret separately with actual credentials
+# Example: kubectl create secret generic care-db-secret \
+#   --from-literal=username=careuser \
+#   --from-literal=password=carepass \
+#   --from-literal=connection-string="postgres://careuser:carepass@care-db:5432/caredb?sslmode=disable"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: care-db-secret
+  labels:
+    app: care-service
+type: Opaque
+stringData:
+  username: "careuser"
+  password: "carepass"
+  connection-string: "postgres://careuser:carepass@care-db:5432/caredb?sslmode=disable"
+---
+# Database Deployment - PostgreSQL database
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: care-db
+  labels:
+    app: care-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: care-db
+  template:
+    metadata:
+      labels:
+        app: care-db
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: care-db-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: care-db-secret
+                  key: password
+            - name: POSTGRES_DB
+              value: caredb
+            - name: PGDATA
+              value: /var/lib/postgresql/data/mydata
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command: ["/usr/local/bin/pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["/usr/local/bin/pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 60
+            periodSeconds: 20
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: care-db-pvc
+        - name: init-script
+          configMap:
+            name: care-db-init
+---
+# Database Service - Internal Networking for PostgreSQL database
+apiVersion: v1
+kind: Service
+metadata:
+  name: care-db
+  labels:
+    app: care-db
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: care-db

@@ -1,0 +1,191 @@
+# ImageStream - Defines the image repository for care-service
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: care-service
+  labels:
+    app: care-service
+spec:
+  lookupPolicy:
+    local: true
+---
+# BuildConfig - Builds the application image from source (Dockerfile)
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: care-service
+  labels:
+    app: care-service
+spec:
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: '1'
+    requests:
+      memory: 256Mi
+      cpu: 200m
+  source:
+    type: Git
+    git:
+      uri: https://github.com/IANDYI/care-service.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+      buildArgs:
+        - name: DOCKER_BUILDKIT
+          value: "1"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: care-service:latest
+  triggers:
+    - type: ConfigChange
+---
+# ConfigMap for Care Service configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: care-service-config
+  labels:
+    app: care-service
+data:
+  PORT: "8080"
+  RABBITMQ_URL: "amqp://guest:guest@rabbitmq-service:5672/"
+  CIRCUIT_BREAKER_INTERVAL: "60s"
+  CIRCUIT_BREAKER_TIMEOUT: "30s"
+  CIRCUIT_BREAKER_MAX_REQUESTS: "5"
+---
+# ConfigMap for Identity Service public key (mounted at /etc/identity/public.pem)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: identity-public-key
+  labels:
+    app: care-service
+data:
+  public.pem: |
+    # This will be populated with the actual public key from Identity Service
+    # In production, this should be mounted from Identity Service's ConfigMap/Secret
+---
+# Deployment for Care Service API
+# Note: This deployment includes:
+# - The main HTTP API server (port 8080)
+# - Baby consumer (runs as background goroutine, processes baby.creation.requests queue)
+# - Alert publisher (publishes alerts to baby_alerts queue)
+# The alert consumer runs separately (see consumer.yaml)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: care-service
+  labels:
+    app: care-service
+    component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: care-service
+      component: api
+  template:
+    metadata:
+      labels:
+        app: care-service
+        component: api
+    spec:
+      containers:
+        - name: care-service
+          image: care-service:latest
+          command: ["./care-service"]
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: care-service-config
+          env:
+            - name: DB_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: care-db-secret
+                  key: connection-string
+            - name: PUBLIC_KEY_PATH
+              value: "/etc/identity/public.pem"
+          volumeMounts:
+            - mountPath: /etc/identity
+              name: identity-public-key
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: identity-public-key
+          configMap:
+            name: identity-public-key
+---
+# Service for Care Service API
+apiVersion: v1
+kind: Service
+metadata:
+  name: care-service
+  labels:
+    app: care-service
+spec:
+  selector:
+    app: care-service
+    component: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+---
+# HorizontalPodAutoscaler for Care Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: care-service-hpa
+  labels:
+    app: care-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: care-service
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70

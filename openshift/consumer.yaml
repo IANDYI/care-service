@@ -1,0 +1,135 @@
+# ImageStream - Defines the image repository for alert-consumer
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: alert-consumer
+  labels:
+    app: alert-consumer
+spec:
+  lookupPolicy:
+    local: true
+---
+# BuildConfig - Builds the alert consumer image from source
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: alert-consumer
+  labels:
+    app: alert-consumer
+spec:
+  resources:
+    limits:
+      memory: 1Gi
+      cpu: '1'
+    requests:
+      memory: 256Mi
+      cpu: 200m
+  source:
+    type: Git
+    git:
+      uri: https://github.com/IANDYI/care-service.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.alert-consumer
+      buildArgs:
+        - name: DOCKER_BUILDKIT
+          value: "1"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: alert-consumer:latest
+  triggers:
+    - type: ConfigChange
+---
+# ConfigMap for Alert Consumer configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-consumer-config
+  labels:
+    app: alert-consumer
+data:
+  RABBITMQ_URL: "amqp://guest:guest@rabbitmq-service:5672/"
+  QUEUE_NAME: "baby_alerts"
+---
+# Deployment for Alert Consumer
+# This consumer runs separately from the care-service and processes
+# alert messages published by the care-service when measurements
+# have Red safety status.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-consumer
+  labels:
+    app: alert-consumer
+    component: consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-consumer
+      component: consumer
+  template:
+    metadata:
+      labels:
+        app: alert-consumer
+        component: consumer
+    spec:
+      containers:
+        - name: alert-consumer
+          image: alert-consumer:latest
+          command: ["./alert-consumer"]
+          envFrom:
+            - configMapRef:
+                name: alert-consumer-config
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          # Health check - verify the process is running
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ps aux | grep -v grep | grep alert-consumer || exit 1"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ps aux | grep -v grep | grep alert-consumer || exit 1"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+# Service for Alert Consumer (optional, for metrics/monitoring)
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-consumer
+  labels:
+    app: alert-consumer
+spec:
+  selector:
+    app: alert-consumer
+    component: consumer
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+      name: metrics
+  type: ClusterIP
+---
+# Note: The alert consumer is a separate service that:
+# - Listens to the "baby_alerts" RabbitMQ queue
+# - Processes alert messages published by care-service when measurements have Red status
+# - Logs alerts and writes them to /tmp/alerts_received.json for verification
+# - Runs independently from the care-service API
+#
+# The baby consumer (for baby creation requests) runs as a goroutine
+# inside the care-service pod and does NOT need a separate deployment.

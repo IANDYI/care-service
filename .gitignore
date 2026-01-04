@@ -1,0 +1,53 @@
+# Private keys and certificates - NEVER commit these
+certs/
+*.pem
+*.key
+*.crt
+
+# Environment files with secrets
+.env
+.env.*
+*.env
+
+# Database files
+*.sql.backup
+postgres_data/
+init.sql
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go build artifacts
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+care-service
+alert-consumer
+
+# Test coverage
+*.out
+coverage.html
+coverage.txt
+
+# Dependency directories
+vendor/
+
+# Local development files
+docker-compose.yaml
+
+# Temporary files
+/tmp/
+*.tmp
+alerts_received.json
+
