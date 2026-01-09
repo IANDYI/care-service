@@ -18,6 +18,9 @@ type Config struct {
 	// RabbitMQ configuration
 	RabbitMQURL string
 
+	// Baby queue name
+	BABY_QUEUE_NAME string
+
 	// Server configuration
 	Port string
 
