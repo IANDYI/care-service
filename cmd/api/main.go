@@ -29,11 +29,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize database schema (POC-friendly: auto-create tables)
-	if err := config.InitDatabase(db); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-
 	// Initialize RabbitMQ publisher
 	rabbitMQPublisher, err := repository.NewRabbitMQPublisher(cfg.RabbitMQURL, "baby_alerts")
 	if err != nil {
