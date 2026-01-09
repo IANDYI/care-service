@@ -46,7 +46,7 @@ func main() {
 	// Initialize RabbitMQ consumer for baby creation
 	// This consumer runs in the same pod as the care-service and processes
 	// baby creation requests from the identity-service via RabbitMQ
-	babyConsumer, err := repository.NewBabyConsumer(cfg.RabbitMQURL, "baby.creation.requests", babyService)
+	babyConsumer, err := repository.NewBabyConsumer(cfg.RabbitMQURL, cfg.BABY_QUEUE_NAME, babyService)
 	if err != nil {
 		log.Fatalf("Failed to initialize RabbitMQ baby consumer: %v", err)
 	}

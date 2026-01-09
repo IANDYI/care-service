@@ -52,6 +52,11 @@ func Load() *Config {
 		rabbitMQURL = "amqp://guest:guest@localhost:5672/"
 	}
 
+	babyQueueName := os.Getenv("BABY_QUEUE_NAME")
+	if babyQueueName == "" {
+		babyQueueName = "babies"
+	}
+
 	// Server port
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -76,6 +81,7 @@ func Load() *Config {
 		JWTPublicKey:              publicKey,
 		DatabaseURL:               dbURL,
 		RabbitMQURL:               rabbitMQURL,
+		BABY_QUEUE_NAME:           babyQueueName,
 		Port:                      port,
 		CircuitBreakerMaxRequests: cbMaxRequests,
 		CircuitBreakerInterval:    cbInterval,
