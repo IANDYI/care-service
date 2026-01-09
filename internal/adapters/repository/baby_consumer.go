@@ -44,7 +44,7 @@ type BabyConsumer struct {
 // NewBabyConsumer creates a new RabbitMQ consumer for baby creation
 func NewBabyConsumer(rabbitMQURL string, queueName string, babyService ports.BabyService) (*BabyConsumer, error) {
 	if queueName == "" {
-		queueName = "baby.creation.requests"
+		queueName = "babies"
 	}
 
 	consumer := &BabyConsumer{
