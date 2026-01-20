@@ -51,15 +51,19 @@ func NewAuthMiddleware(publicKey *rsa.PublicKey) *AuthMiddleware {
 type contextKey string
 
 const (
-	UserIDKey contextKey = "userID"
-	RoleKey   contextKey = "role"
-	TokenKey  contextKey = "token"
+	UserIDKey     contextKey = "userID"
+	RoleKey       contextKey = "role"
+	TokenKey      contextKey = "token"
+	UserEmailKey  contextKey = "userEmail"
+	UserFirstName contextKey = "userFirstName"
+	UserLastName  contextKey = "userLastName"
 )
 
-// getClaimsFromCacheOrParse extracts claims from cache or parses token
+// GetClaimsFromCacheOrParse extracts claims from cache or parses token
 // Uses JTI (JWT ID) for cache keying instead of full token string
 // Returns claims, JTI, and error
-func (m *AuthMiddleware) getClaimsFromCacheOrParse(tokenString string) (jwt.MapClaims, string, error) {
+// Public method for use in WebSocket handlers and other contexts
+func (m *AuthMiddleware) GetClaimsFromCacheOrParse(tokenString string) (jwt.MapClaims, string, error) {
 	// Peek at the JTI without verifying the signature yet (performance optimization)
 	parser := new(jwt.Parser)
 	unverifiedToken, _, err := parser.ParseUnverified(tokenString, jwt.MapClaims{})
@@ -142,11 +146,11 @@ func (m *AuthMiddleware) getClaimsFromCacheOrParse(tokenString string) (jwt.MapC
 	return verifiedClaims, jti, nil
 }
 
-// Authenticate validates JWT token and extracts claims
-// Returns userID and role, or error if token is invalid
-// Maintains backward compatibility with existing code
-func (m *AuthMiddleware) Authenticate(tokenString string) (userID string, role string, err error) {
-	claims, _, err := m.getClaimsFromCacheOrParse(tokenString)
+	// Authenticate validates JWT token and extracts claims
+	// Returns userID and role, or error if token is invalid
+	// Maintains backward compatibility with existing code
+	func (m *AuthMiddleware) Authenticate(tokenString string) (userID string, role string, err error) {
+		claims, _, err := m.GetClaimsFromCacheOrParse(tokenString)
 	if err != nil {
 		return "", "", err
 	}
@@ -194,7 +198,7 @@ func (m *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Get claims from cache or parse
-		claims, jti, err := m.getClaimsFromCacheOrParse(tokenString)
+		claims, jti, err := m.GetClaimsFromCacheOrParse(tokenString)
 		if err != nil {
 			log.Printf("Token validation failed: %v", err)
 			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
@@ -218,10 +222,18 @@ func (m *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		log.Printf("Token validated - UserID: %s, Role: %s, JTI: %s (processing time: %v)", userID, userRole, jti, time.Since(start))
 
+		// Extract optional user details from claims
+		email, _ := claims["email"].(string)
+		firstName, _ := claims["first_name"].(string)
+		lastName, _ := claims["last_name"].(string)
+
 		// Add to context
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		ctx = context.WithValue(ctx, RoleKey, userRole)
 		ctx = context.WithValue(ctx, TokenKey, tokenString)
+		ctx = context.WithValue(ctx, UserEmailKey, email)
+		ctx = context.WithValue(ctx, UserFirstName, firstName)
+		ctx = context.WithValue(ctx, UserLastName, lastName)
 
 		next(w, r.WithContext(ctx))
 	}
@@ -331,6 +343,24 @@ func GetToken(ctx context.Context) (string, bool) {
 func IsAdmin(ctx context.Context) bool {
 	role, ok := GetRole(ctx)
 	return ok && role == "ADMIN"
+}
+
+// GetUserEmail extracts user email from request context
+func GetUserEmail(ctx context.Context) (string, bool) {
+	email, ok := ctx.Value(UserEmailKey).(string)
+	return email, ok
+}
+
+// GetUserFirstName extracts user first name from request context
+func GetUserFirstName(ctx context.Context) (string, bool) {
+	firstName, ok := ctx.Value(UserFirstName).(string)
+	return firstName, ok
+}
+
+// GetUserLastName extracts user last name from request context
+func GetUserLastName(ctx context.Context) (string, bool) {
+	lastName, ok := ctx.Value(UserLastName).(string)
+	return lastName, ok
 }
 
 // min returns the minimum of two integers

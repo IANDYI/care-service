@@ -53,6 +53,7 @@ metadata:
 data:
   RABBITMQ_URL: "amqp://guest:guest@rabbitmq-service:5672/"
   QUEUE_NAME: "baby_alerts"
+  WEBSOCKET_PORT: "8081"
 ---
 # Deployment for Alert Consumer
 # This consumer runs separately from the care-service and processes
@@ -81,9 +82,23 @@ spec:
         - name: alert-consumer
           image: alert-consumer:latest
           command: ["./alert-consumer"]
+          ports:
+            - containerPort: 8081
+              name: websocket
+            - containerPort: 8081
+              name: metrics
           envFrom:
             - configMapRef:
                 name: alert-consumer-config
+          env:
+            - name: WEBSOCKET_PORT
+              value: "8081"
+            - name: PUBLIC_KEY_PATH
+              value: "/etc/certs/public.pem"
+          volumeMounts:
+            - name: public-key
+              mountPath: /etc/certs
+              readOnly: true
           resources:
             requests:
               cpu: "50m"
@@ -91,29 +106,42 @@ spec:
             limits:
               cpu: "200m"
               memory: "256Mi"
-          # Health check - verify the process is running
+          # Health check - HTTP endpoint
           livenessProbe:
-            exec:
-              command: ["/bin/sh", "-c", "ps aux | grep -v grep | grep alert-consumer || exit 1"]
+            httpGet:
+              path: /health/live
+              port: 8081
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
-            exec:
-              command: ["/bin/sh", "-c", "ps aux | grep -v grep | grep alert-consumer || exit 1"]
+            httpGet:
+              path: /health/ready
+              port: 8081
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+      volumes:
+        - name: public-key
+          secret:
+            secretName: identity-rsa-keys
+            items:
+              - key: public.pem
+                path: public.pem
 ---
-# Service for Alert Consumer (optional, for metrics/monitoring)
+# Service for Alert Consumer (WebSocket and metrics)
 apiVersion: v1
 kind: Service
 metadata:
   name: alert-consumer
   labels:
     app: alert-consumer
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8081"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: alert-consumer
@@ -122,8 +150,30 @@ spec:
     - protocol: TCP
       port: 8081
       targetPort: 8081
+      name: websocket
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
       name: metrics
   type: ClusterIP
+---
+# Route for Alert Consumer WebSocket (optional, for external access)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: alert-consumer-ws
+  labels:
+    app: alert-consumer
+spec:
+  to:
+    kind: Service
+    name: alert-consumer
+    weight: 100
+  port:
+    targetPort: websocket
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
 ---
 # Note: The alert consumer is a separate service that:
 # - Listens to the "baby_alerts" RabbitMQ queue

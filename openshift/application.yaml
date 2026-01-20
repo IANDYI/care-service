@@ -43,36 +43,10 @@ spec:
   triggers:
     - type: ConfigChange
 ---
-# ConfigMap for Care Service configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: care-service-config
-  labels:
-    app: care-service
-data:
-  PORT: "8080"
-  RABBITMQ_URL: "amqp://guest:guest@rabbitmq-service:5672/"
-  CIRCUIT_BREAKER_INTERVAL: "60s"
-  CIRCUIT_BREAKER_TIMEOUT: "30s"
-  CIRCUIT_BREAKER_MAX_REQUESTS: "5"
----
-# ConfigMap for Identity Service public key (mounted at /etc/identity/public.pem)
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: identity-public-key
-  labels:
-    app: care-service
-data:
-  public.pem: |
-    # This will be populated with the actual public key from Identity Service
-    # In production, this should be mounted from Identity Service's ConfigMap/Secret
----
 # Deployment for Care Service API
 # Note: This deployment includes:
 # - The main HTTP API server (port 8080)
-# - Baby consumer (runs as background goroutine, processes baby.creation.requests queue)
+# - Baby consumer (runs as background goroutine, processes babies queue)
 # - Alert publisher (publishes alerts to baby_alerts queue)
 # The alert consumer runs separately (see consumer.yaml)
 apiVersion: apps/v1
@@ -110,11 +84,28 @@ spec:
                 secretKeyRef:
                   name: care-db-secret
                   key: connection-string
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: password
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: url
+            - name: BABY_QUEUE_NAME
+              value: "babies"
             - name: PUBLIC_KEY_PATH
-              value: "/etc/identity/public.pem"
+              value: "/etc/certs/public.pem"
           volumeMounts:
-            - mountPath: /etc/identity
-              name: identity-public-key
+            - name: public-key
+              mountPath: /etc/certs
               readOnly: true
           livenessProbe:
             httpGet:
@@ -140,9 +131,12 @@ spec:
               cpu: "500m"
               memory: "512Mi"
       volumes:
-        - name: identity-public-key
-          configMap:
-            name: identity-public-key
+        - name: public-key
+          secret:
+            secretName: identity-rsa-keys
+            items:
+              - key: public.pem
+                path: public.pem
 ---
 # Service for Care Service API
 apiVersion: v1
@@ -151,6 +145,10 @@ metadata:
   name: care-service
   labels:
     app: care-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: care-service
@@ -160,7 +158,29 @@ spec:
       port: 80
       targetPort: 8080
       name: http
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: metrics
   type: ClusterIP
+---
+# Route - Exposes the Care Service API externally
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: care-service
+  labels:
+    app: care-service
+spec:
+  to:
+    kind: Service
+    name: care-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
 ---
 # HorizontalPodAutoscaler for Care Service
 apiVersion: autoscaling/v2
