@@ -16,6 +16,7 @@ import (
 	"github.com/IANDYI/care-service/internal/adapters/repository"
 	"github.com/IANDYI/care-service/internal/config"
 	"github.com/IANDYI/care-service/internal/core/services"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -73,17 +74,14 @@ func main() {
 	// Initialize JWT middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTPublicKey)
 
-	// Register Prometheus metrics
-	handler.RegisterMetrics()
-
 	// Setup HTTP router
 	mux := http.NewServeMux()
 
 	// Health endpoints (OpenShift compatible, no auth required)
+	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.HandleFunc("GET /health", healthHandler.Health)
 	mux.HandleFunc("GET /health/ready", healthHandler.Ready)
 	mux.HandleFunc("GET /health/live", healthHandler.Live)
-	mux.HandleFunc("GET /metrics", handler.Metrics)
 
 	// API endpoints (require authentication)
 	// POST /babies - ADMIN only
@@ -107,10 +105,13 @@ func main() {
 	// DELETE /measurements/{measurement_id} - PARENT: only measurements they created (ADMIN cannot delete)
 	mux.HandleFunc("DELETE /measurements/{measurement_id}", authMiddleware.RequireAuth(measurementHandler.DeleteMeasurement))
 
+	// Wrap mux with metrics middleware to track all HTTP requests
+	loggedRouter := middleware.MetricsMiddleware(mux)
+
 	// Create HTTP server
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      mux,
+		Handler:      loggedRouter,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
