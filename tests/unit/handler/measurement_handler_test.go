@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IANDYI/care-service/internal/adapters/handler"
+	"github.com/IANDYI/care-service/internal/adapters/handler" //nolint:staticcheck // handler package contains non-deprecated code
 	"github.com/IANDYI/care-service/internal/adapters/middleware"
 	"github.com/IANDYI/care-service/internal/core/domain"
 	"github.com/IANDYI/care-service/internal/core/ports"

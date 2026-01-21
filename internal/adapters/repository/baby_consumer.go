@@ -281,7 +281,9 @@ func (c *BabyConsumer) processMessage(ctx context.Context, msg amqp091.Delivery)
 	if req.RoomNumber == "" {
 		log.Printf("Invalid baby creation request: room_number is required")
 		// Invalid data - reject and don't requeue
-		msg.Nack(false, false)
+		if err := msg.Nack(false, false); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 
@@ -290,7 +292,9 @@ func (c *BabyConsumer) processMessage(ctx context.Context, msg amqp091.Delivery)
 	if err != nil {
 		log.Printf("Invalid baby creation request: user_id is not a valid UUID: %v", err)
 		// Invalid UUID format - reject and don't requeue
-		msg.Nack(false, false)
+		if err := msg.Nack(false, false); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 
@@ -303,7 +307,9 @@ func (c *BabyConsumer) processMessage(ctx context.Context, msg amqp091.Delivery)
 		log.Printf("Failed to create baby from RabbitMQ message: %v", err)
 		// Baby creation failed - reject and requeue for retry
 		// This ensures the message will be redelivered and we can try again
-		msg.Nack(false, true)
+		if err := msg.Nack(false, true); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 

@@ -58,7 +58,10 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 			Status:    "not ready",
 			Timestamp: time.Now(),
 		}
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			// Log error but don't fail health check
+			http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		}
 		return
 	}
 
