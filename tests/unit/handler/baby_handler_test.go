@@ -12,14 +12,13 @@ import (
 	"github.com/IANDYI/care-service/internal/adapters/handler"
 	"github.com/IANDYI/care-service/internal/adapters/middleware"
 	"github.com/IANDYI/care-service/internal/core/domain"
-	"github.com/IANDYI/care-service/internal/core/ports"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockBabyService is a mock implementation of ports.BabyService
+// MockBabyService is a mock implementation of BabyService
 type MockBabyService struct {
 	mock.Mock
 }

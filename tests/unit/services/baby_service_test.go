@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/IANDYI/care-service/internal/core/domain"
-	"github.com/IANDYI/care-service/internal/core/ports"
 	"github.com/IANDYI/care-service/internal/core/services"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockBabyRepository is a mock implementation of ports.BabyRepository
+// MockBabyRepository is a mock implementation of BabyRepository
 type MockBabyRepository struct {
 	mock.Mock
 }
@@ -62,14 +61,6 @@ func TestBabyService_CreateBaby_Success(t *testing.T) {
 
 	parentUserID := uuid.New()
 	createdByUserID := uuid.New()
-
-	baby := &domain.Baby{
-		ID:           uuid.New(),
-		LastName:     "Doe",
-		RoomNumber:   "101",
-		ParentUserID: parentUserID,
-		CreatedAt:    time.Now(),
-	}
 
 	mockRepo.On("CreateBaby", mock.Anything, mock.MatchedBy(func(b *domain.Baby) bool {
 		return b.LastName == "Doe" && b.RoomNumber == "101" && b.ParentUserID == parentUserID
