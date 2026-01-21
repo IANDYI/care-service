@@ -52,7 +52,7 @@ metadata:
     app: alert-consumer
 data:
   RABBITMQ_URL: "amqp://guest:guest@rabbitmq-service:5672/"
-  QUEUE_NAME: "baby_alerts"
+  ALERTS_QUEUE_NAME: "baby_alerts"
   WEBSOCKET_PORT: "8081"
 ---
 # Deployment for Alert Consumer

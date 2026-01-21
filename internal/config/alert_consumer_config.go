@@ -31,7 +31,7 @@ func LoadAlertConsumerConfig() *AlertConsumerConfig {
 		rabbitMQURL = "amqp://guest:guest@localhost:5672/"
 	}
 
-	queueName := os.Getenv("QUEUE_NAME")
+	queueName := os.Getenv("ALERTS_QUEUE_NAME")
 	if queueName == "" {
 		queueName = "baby_alerts"
 	}

@@ -101,6 +101,8 @@ spec:
                   key: url
             - name: BABY_QUEUE_NAME
               value: "babies"
+            - name: ALERTS_QUEUE_NAME
+              value: "baby_alerts"
             - name: PUBLIC_KEY_PATH
               value: "/etc/certs/public.pem"
           volumeMounts:

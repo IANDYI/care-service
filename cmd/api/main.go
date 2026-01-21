@@ -30,7 +30,7 @@ func main() {
 	defer db.Close()
 
 	// Initialize RabbitMQ publisher
-	rabbitMQPublisher, err := repository.NewRabbitMQPublisher(cfg.RabbitMQURL, "baby_alerts")
+	rabbitMQPublisher, err := repository.NewRabbitMQPublisher(cfg.RabbitMQURL, cfg.ALERTS_QUEUE_NAME)
 	if err != nil {
 		log.Fatalf("Failed to initialize RabbitMQ publisher: %v", err)
 	}
