@@ -136,7 +136,11 @@ func (c *BabyConsumer) handleReconnection(rabbitMQURL string) {
 				if c.consumingCtx != nil && c.consumingCtx.Err() == nil {
 					// Only restart if we have a valid context and we're not already consuming
 					if !c.isConsuming {
-						go c.StartConsuming(c.consumingCtx)
+						go func() {
+							if err := c.StartConsuming(c.consumingCtx); err != nil {
+								log.Printf("Error restarting consumer: %v", err)
+							}
+						}()
 					}
 				}
 				c.consumingMutex.Unlock()
@@ -248,7 +252,9 @@ func (c *BabyConsumer) processMessage(ctx context.Context, msg amqp091.Delivery)
 	if err := json.Unmarshal(msg.Body, &req); err != nil {
 		log.Printf("Failed to unmarshal baby creation request: %v", err)
 		// Invalid message format - reject and don't requeue (will be lost)
-		msg.Nack(false, false)
+		if err := msg.Nack(false, false); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 
@@ -259,13 +265,17 @@ func (c *BabyConsumer) processMessage(ctx context.Context, msg amqp091.Delivery)
 	if req.UserID == "" {
 		log.Printf("Invalid baby creation request: user_id is required")
 		// Invalid data - reject and don't requeue
-		msg.Nack(false, false)
+		if err := msg.Nack(false, false); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 	if req.LastName == "" {
 		log.Printf("Invalid baby creation request: last_name is required")
 		// Invalid data - reject and don't requeue
-		msg.Nack(false, false)
+		if err := msg.Nack(false, false); err != nil {
+			log.Printf("Failed to nack message: %v", err)
+		}
 		return
 	}
 	if req.RoomNumber == "" {

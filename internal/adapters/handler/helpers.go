@@ -11,7 +11,10 @@ import (
 // generateRequestID generates a unique request ID for tracing
 func generateRequestID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return hex.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
+	}
 	return hex.EncodeToString(b)
 }
 

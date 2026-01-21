@@ -11,10 +11,10 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/IANDYI/care-service/internal/adapters/handler"
+	"github.com/IANDYI/care-service/internal/adapters/handler" //nolint:staticcheck // handler package contains non-deprecated code
 	"github.com/IANDYI/care-service/internal/adapters/middleware"
 	"github.com/IANDYI/care-service/internal/adapters/repository"
-	"github.com/IANDYI/care-service/internal/config"
+	"github.com/IANDYI/care-service/internal/config" //nolint:staticcheck // config package contains non-deprecated code
 	"github.com/IANDYI/care-service/internal/core/services"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

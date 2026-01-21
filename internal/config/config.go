@@ -77,7 +77,8 @@ func Load() *Config {
 	// Circuit breaker settings (optional, with defaults)
 	cbMaxRequests := uint32(5)
 	if val := os.Getenv("CIRCUIT_BREAKER_MAX_REQUESTS"); val != "" {
-		// Parse if needed, for now use default
+		// TODO: Parse CIRCUIT_BREAKER_MAX_REQUESTS if needed
+		_ = val // Suppress unused variable warning
 	}
 	cbInterval := os.Getenv("CIRCUIT_BREAKER_INTERVAL")
 	if cbInterval == "" {

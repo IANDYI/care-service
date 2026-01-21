@@ -79,7 +79,9 @@ func (h *BabyHandler) CreateBaby(w http.ResponseWriter, r *http.Request) {
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(baby)
+	if err := json.NewEncoder(w).Encode(baby); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 
 // GetBaby handles GET /babies/{baby_id}
@@ -133,7 +135,9 @@ func (h *BabyHandler) GetBaby(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(baby)
+	if err := json.NewEncoder(w).Encode(baby); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 
 // ListBabies handles GET /babies
@@ -172,6 +176,8 @@ func (h *BabyHandler) ListBabies(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(babies)
+	if err := json.NewEncoder(w).Encode(babies); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 

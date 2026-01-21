@@ -38,7 +38,10 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log error but don't fail health check
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // Ready handles GET /health/ready - readiness probe
@@ -65,7 +68,10 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log error but don't fail health check
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // Live handles GET /health/live - liveness probe
@@ -76,7 +82,10 @@ func (h *HealthHandler) Live(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log error but don't fail health check
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // Metrics handles GET /metrics - Prometheus metrics endpoint

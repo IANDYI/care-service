@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IANDYI/care-service/internal/adapters/handler"
+	"github.com/IANDYI/care-service/internal/adapters/handler" //nolint:staticcheck // handler package contains non-deprecated code
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

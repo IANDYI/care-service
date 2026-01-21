@@ -145,7 +145,9 @@ func (h *MeasurementHandler) CreateMeasurement(w http.ResponseWriter, r *http.Re
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(measurement)
+	if err := json.NewEncoder(w).Encode(measurement); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 
 // GetMeasurements handles GET /babies/{baby_id}/measurements
@@ -216,7 +218,9 @@ func (h *MeasurementHandler) GetMeasurements(w http.ResponseWriter, r *http.Requ
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(measurements)
+	if err := json.NewEncoder(w).Encode(measurements); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 
 // GetMeasurementByID handles GET /measurements/{measurement_id}
@@ -270,7 +274,9 @@ func (h *MeasurementHandler) GetMeasurementByID(w http.ResponseWriter, r *http.R
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(measurement)
+	if err := json.NewEncoder(w).Encode(measurement); err != nil {
+		log.Printf("[%s] Failed to encode response: %v", requestID, err)
+	}
 }
 
 // DeleteMeasurement handles DELETE /measurements/{measurement_id}
