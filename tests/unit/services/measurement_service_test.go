@@ -223,7 +223,10 @@ func TestMeasurementService_CreateMeasurement_RedStatus(t *testing.T) {
 	mockMeasurementRepo.On("CreateMeasurement", mock.Anything, mock.MatchedBy(func(m *domain.Measurement) bool {
 		return m.SafetyStatus == domain.SafetyStatusRed
 	})).Return(nil)
-	// Alert publisher might be called asynchronously, so we don't assert it here
+	// Alert publisher is called asynchronously in a goroutine for Red status measurements
+	mockAlertPublisher.On("PublishAlert", mock.Anything, babyID, mock.MatchedBy(func(m *domain.Measurement) bool {
+		return m.SafetyStatus == domain.SafetyStatusRed
+	})).Return(nil)
 
 	req := ports.CreateMeasurementRequest{
 		Type:  "temperature",
@@ -236,8 +239,13 @@ func TestMeasurementService_CreateMeasurement_RedStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, domain.SafetyStatusRed, result.SafetyStatus)
+	
+	// Wait a bit for the async goroutine to complete
+	time.Sleep(100 * time.Millisecond)
+	
 	mockBabyRepo.AssertExpectations(t)
 	mockMeasurementRepo.AssertExpectations(t)
+	mockAlertPublisher.AssertExpectations(t)
 }
 
 func TestMeasurementService_GetMeasurements_Success(t *testing.T) {
