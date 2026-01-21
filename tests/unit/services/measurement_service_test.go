@@ -141,6 +141,8 @@ func TestMeasurementService_CreateMeasurement_Forbidden_Admin(t *testing.T) {
 	userID := uuid.New()
 	babyID := uuid.New()
 
+	mockBabyRepo.On("BabyExists", mock.Anything, babyID).Return(true, nil)
+
 	req := ports.CreateMeasurementRequest{
 		Type:  "temperature",
 		Value: 37.0,
@@ -151,7 +153,8 @@ func TestMeasurementService_CreateMeasurement_Forbidden_Admin(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "forbidden")
-	mockBabyRepo.AssertNotCalled(t, "BabyExists")
+	mockBabyRepo.AssertExpectations(t)
+	mockBabyRepo.AssertNotCalled(t, "CheckBabyOwnership")
 	mockMeasurementRepo.AssertNotCalled(t, "CreateMeasurement")
 }
 
