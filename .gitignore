@@ -33,7 +33,6 @@ bin/
 *.so
 *.dylib
 care-service
-alert-consumer
 
 # Test coverage
 *.out
