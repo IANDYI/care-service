@@ -21,6 +21,9 @@ type Config struct {
 	// Baby queue name
 	BABY_QUEUE_NAME string
 
+	// Alerts queue name (for publishing alerts)
+	ALERTS_QUEUE_NAME string
+
 	// Server configuration
 	Port string
 
@@ -60,6 +63,11 @@ func Load() *Config {
 		babyQueueName = "babies"
 	}
 
+	alertsQueueName := os.Getenv("ALERTS_QUEUE_NAME")
+	if alertsQueueName == "" {
+		alertsQueueName = "baby_alerts"
+	}
+
 	// Server port
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -85,6 +93,7 @@ func Load() *Config {
 		DatabaseURL:               dbURL,
 		RabbitMQURL:               rabbitMQURL,
 		BABY_QUEUE_NAME:           babyQueueName,
+		ALERTS_QUEUE_NAME:         alertsQueueName,
 		Port:                      port,
 		CircuitBreakerMaxRequests: cbMaxRequests,
 		CircuitBreakerInterval:    cbInterval,
